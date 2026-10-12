@@ -42,6 +42,16 @@ Send two Cookie headers on one HTTP/1.1 request. The first is harmless. The seco
 
 Apps that parse `HTTP_COOKIE` get the value the 1.8.2.1 control was meant to keep off the worker. Apps that only read `$_COOKIE['litespeed_role']` did not see it in this lab.
 
+| Privilege | Method / path | Lab-proven or inferred |
+|---|---|---|
+| Skip the 1.8.2.1 403 and land 200 on lsphp (integrity of the cookie block) | HTTP/1.1 `Cookie: dummy=1` plus `Cookie: litespeed_role=WITNESS` | Lab-proven. `dup-cookie=200` `php-sees-role=yes` |
+| Deliver the role name to PHP `$_SERVER['HTTP_COOKIE']` (integrity of CGI env) | LSAPI last-wins on the second Cookie line | Lab-proven. Body `HTTP_COOKIE=litespeed_role=OLS-DUP-COOKIE-LITESPEED-ROLE-WITNESS` |
+| Populate `$_COOKIE['litespeed_role']` | PHP cookie table | Lab-proven closed. Stayed empty |
+| Same skip on HTTP/2 | Duplicate Cookie on h2 | Lab-proven closed. HTTP/2 scans every Cookie |
+| WordPress ATO / RCE / file read | OLS does not eval cookie bytes or grant a WP role | Closed on this leftover |
+
+Closed on this leftover: unauthenticated OS RCE, forging `wordpress_logged_in_*` without site secrets, and treating `$_COOKIE['litespeed_role']` as set. Historical LSCWP `is_role_simulation` read `$_COOKIE['litespeed_role']`, which this lab did not populate.
+
 ## How I found it
 
 Twenty source hunts of v1.9.3 after Caddy and lighttpd. The 1.8.2.1 block is `memmem(..., "litespeed_role=", 15)` on the first common Cookie. Duplicate Cookie is not in the 400 list.
@@ -51,11 +61,17 @@ Wrong turns: treating urllib as able to send two Cookie headers (it merges them)
 ## Lab
 
 ```bash
+python3 openlitespeed-dup-cookie-litespeed-role-Abraxas-Labs.py
+```
+
+or
+
+```bash
 cd lab
 ./run.sh
 ```
 
-Image `litespeedtech/openlitespeed:1.9.3-lsphp84`. Oracle `lab/www/cookie.php`. Raw HTTP/1.1 sockets. Bind loopback.
+Image `litespeedtech/openlitespeed:1.9.3-lsphp84`. Oracle `lab/www/cookie.php`. Raw HTTP/1.1 sockets. Bind loopback `127.0.0.1:18750`. Witness `OLS-DUP-COOKIE-LITESPEED-ROLE-WITNESS`.
 
 ```text
 SUCCESS openlitespeed-dup-cookie-litespeed-role single-cookie=403 dummy=200 dup-cookie=200 php-sees-role=yes how=php-http-cookie OLS-DUP-COOKIE-LITESPEED-ROLE-WITNESS
@@ -71,3 +87,9 @@ Scan every HTTP/1 Cookie header the way HTTP/2 already does, or 400 duplicate Co
 - `src/http/httpreq.cpp` duplicate common headers, first-Cookie `litespeed_role=` scan, `IS_BL_COOKIE` 403
 - `src/http/httpcgitool.cpp` unknown header export as `HTTP_COOKIE`
 - 1.8.2.1 block `litespeed_role` cookie
+- Same pin leftover: [openlitespeed-h3-mtls-verifycontext](https://github.com/abraxas/openlitespeed-h3-mtls-verifycontext)
+- [CWE-693](https://cwe.mitre.org/data/definitions/693.html) · [CWE-436](https://cwe.mitre.org/data/definitions/436.html)
+
+## License
+
+GNU Affero GPL v3.0. See [LICENSE](LICENSE). Loopback lab only. No warranty.
