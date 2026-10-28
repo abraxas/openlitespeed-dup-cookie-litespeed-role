@@ -13,6 +13,10 @@
   &nbsp;·&nbsp;
   <a href="https://github.com/abraxas/openlitespeed-dup-cookie-litespeed-role">openlitespeed-dup-cookie-litespeed-role</a>
 </p>
+<p align="center">
+  Write-up: <a href="https://abraxaslabs.tech/research/openlitespeed-dup-cookie-litespeed-role"><strong>https://abraxaslabs.tech/research/openlitespeed-dup-cookie-litespeed-role</strong></a>
+</p>
+
 
 # openlitespeed-dup-cookie-litespeed-role
 
